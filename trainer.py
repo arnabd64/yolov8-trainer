@@ -1,34 +1,31 @@
 from ultralytics import YOLO
 from supervision import Detections
+import yaml
 import os
-import torch
 
 
 class YOLOTrainer:
     
-    __slots__ = ('model_name','model','project_name','run_name','yaml_path','hyperparameters','device')
+    __slots__ = ('model_name','model','project_name','run_name','hyperparameters')
     
     def __init__(
         self,
         model_name = 'yolov8n.pt',
         project_name = 'yolov8-project',
         run_name = 'nano-model-run-0',
-        yaml_path = 'data.yaml',
         hyperparameters = dict(batch=16, epochs=1)
     ):
         self.model_name = model_name
         self.model = YOLO(model_name)
         self.project_name = project_name
         self.run_name = run_name
-        self.yaml_path = yaml_path
         self.hyperparameters = hyperparameters
-        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
     
     def train(self):
         self.model.train(
-            device = self.device,
-            data = self.yaml_path,
+            device = 0,
+            data = 'data.yaml',
             project = self.project_name,
             name = self.run_name,
             **self.hyperparameters
@@ -49,3 +46,19 @@ class YOLOTrainer:
         model = self.best_model if use_best_model else self.model        
         output = model.predict(cv_image, conf=confidence, verbose=False)
         return Detections.from_ultralytics(output[0])
+
+    
+    def generate_and_export_dataset_yaml(self, labels:list[str], train_dir="train", val_dir="valid", test_dir="test"):
+        data_yml = dict(
+            path = ".",
+            train = train_dir,
+            val = val_dir,
+            test = test_dir,
+            nc = len(labels),
+            names = {idx:label for idx, label in enumerate(labels)}
+        )
+        
+        with open(os.path.join(os.getcwd(), 'data.yaml'), "w") as yml:
+            yaml.dump(data_yml, yml, yaml.SafeDumper)
+            
+        return True
